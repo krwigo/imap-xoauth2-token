@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import base64, hashlib, os, selectors, socket, ssl, threading, time, re
+import base64, hashlib, os, selectors, socket, ssl, threading, time, re, select
 import google.auth.transport.requests
 from google.oauth2 import service_account
 
@@ -10,6 +10,7 @@ GOOGLE_IMAP_HOST = os.environ.get("GOOGLE_IMAP_HOST", "imap.gmail.com")
 GOOGLE_IMAP_PORT = int(os.environ.get("GOOGLE_IMAP_PORT", "993"))
 SESSION_IDLE_TIMEOUT = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", "300"))
 MAX_SESSION_SECONDS = int(os.environ.get("SESSION_MAX_SECONDS", "3600"))
+MAX_LINE_BYTES = int(os.environ.get("MAX_LINE_BYTES", "8192"))
 GATEWAY_PASSWORD_HASH = os.environ["GATEWAY_PASSWORD_HASH"]
 
 SCOPES = ["https://mail.google.com/"]
@@ -26,7 +27,7 @@ class Reader:
         self.buf = b""
 
     def read_line(self, timeout=None):
-        deadline = time.time() + timeout if timeout else None
+        deadline = time.monotonic() + timeout if timeout else None
         while True:
             idx = self.buf.find(b"\r\n")
             if idx >= 0:
@@ -34,12 +35,29 @@ class Reader:
                 self.buf = self.buf[idx + 2:]
                 # print("DEBUG", "READ<<", repr(line))
                 return line
-            chunk = self.sock.recv(4096)
+
+            if len(self.buf) >= MAX_LINE_BYTES:
+                raise ValueError("line too long")
+
+            pending = self.sock.pending() if hasattr(self.sock, "pending") else 0
+            if not pending:
+                wait = None
+                if deadline:
+                    wait = deadline - time.monotonic()
+                    if wait <= 0:
+                        raise TimeoutError("timeout")
+
+                r, _, _ = select.select([self.sock], [], [], wait)
+                if not r:
+                    raise TimeoutError("timeout")
+
+            read_size = min(4096, MAX_LINE_BYTES - len(self.buf))
+            if pending:
+                read_size = min(read_size, pending)
+            chunk = self.sock.recv(read_size)
             if not chunk:
                 raise EOFError("closed")
             self.buf += chunk
-            if deadline and time.time() >= deadline:
-                raise TimeoutError("timeout")
 
 def wline(sock, text):
     # print("DEBUG", "WRITE>>", repr(text))
@@ -160,23 +178,35 @@ def bridge(client_sock, gmail_tls):
     sel.register(client_sock, selectors.EVENT_READ, gmail_tls)
     sel.register(gmail_tls, selectors.EVENT_READ, client_sock)
 
-    start = time.time()
-    last = time.time()
+    start = time.monotonic()
+    last = start
 
-    while True:
-        elapsed = time.time() - start
-        if MAX_SESSION_SECONDS and elapsed >= MAX_SESSION_SECONDS:
-            break
-        idle = time.time() - last
-        remaining = SESSION_IDLE_TIMEOUT - idle
-        tv = min(max(remaining, 1), 60) if remaining > 0 else 1
-        events = sel.select(timeout=min(tv, 60))
-        for key, _ in events:
-            data = key.fileobj.recv(65536)
-            if not data:
+    try:
+        while True:
+            now = time.monotonic()
+            elapsed = now - start
+            if MAX_SESSION_SECONDS and elapsed >= MAX_SESSION_SECONDS:
                 return
-            last = time.time()
-            key.data.sendall(data)
+
+            idle = now - last
+            if SESSION_IDLE_TIMEOUT and idle >= SESSION_IDLE_TIMEOUT:
+                return
+
+            waits = [60]
+            if MAX_SESSION_SECONDS:
+                waits.append(MAX_SESSION_SECONDS - elapsed)
+            if SESSION_IDLE_TIMEOUT:
+                waits.append(SESSION_IDLE_TIMEOUT - idle)
+
+            events = sel.select(timeout=max(0, min(waits)))
+            for key, _ in events:
+                data = key.fileobj.recv(65536)
+                if not data:
+                    return
+                key.data.sendall(data)
+                last = time.monotonic()
+    finally:
+        sel.close()
 
 def handle_client(conn, addr):
     conn_id = id(conn)

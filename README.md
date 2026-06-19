@@ -43,7 +43,6 @@ docker compose -f docker-compose.yml up -d --force-recreate
 # styles
 
 - No python typing.
-- No __pycache__ directory.
 - No comments, docstrings, or inline annotations in the source code. Commented-out source blocks are acceptable.
 - Combine single-line imports with commas where possible.
 - Use f-string formatting (`f"{}"`) instead of `.format()`.
@@ -55,8 +54,3 @@ docker compose -f docker-compose.yml up -d --force-recreate
 - https://docs.python.org/3/library/imaplib.html
 - https://developers.google.com/identity/protocols/oauth2/service-account
 - https://developers.google.com/workspace/cloud-search/docs/guides/delegation
-
-# issues
-
-- High: connection timeouts are ineffective and line buffers are unbounded.
-- High: idle session timeout does not close idle bridged sessions.
