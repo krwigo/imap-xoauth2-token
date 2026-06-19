@@ -1,0 +1,22 @@
+# docker compose -f docker-compose.yml up -d --force-recreate
+
+services:
+  imap-xoauth2-token:
+    image: python:3
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      GATEWAY_PASSWORD_HASH: your-password-hash
+    command: >
+      bash -lc "pip install -r requirements.txt && python imap-xoauth2-token.py"
+    networks:
+      webnet:
+        aliases:
+          - imap-xoauth2-token
+
+networks:
+  webnet:
+    name: webnet
+    external: true

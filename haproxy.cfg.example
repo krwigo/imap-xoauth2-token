@@ -1,0 +1,33 @@
+global
+  ca-base /etc/ssl/certs
+  crt-base /etc/ssl/private
+
+defaults
+  mode http
+  log global
+  option forwardfor
+  option httplog
+  option dontlognull
+  balance roundrobin
+
+resolvers docker_resolver
+  nameserver dns 127.0.0.11:53
+  hold valid 1ms
+
+frontend imap-xoauth2-token-143
+  bind *:32143
+  mode tcp
+  default_backend be-imap-xoauth2-token-143
+
+backend be-imap-xoauth2-token-143
+  mode tcp
+  server svr imap-xoauth2-token:143 resolvers docker_resolver
+
+frontend imap-xoauth2-token-993
+  bind *:32993 ssl crt /usr/local/etc/haproxy/ssl
+  mode tcp
+  default_backend be-imap-xoauth2-token-993
+
+backend be-imap-xoauth2-token-993
+  mode tcp
+  server svr imap-xoauth2-token:143 resolvers docker_resolver
