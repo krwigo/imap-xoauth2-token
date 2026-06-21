@@ -1,0 +1,33 @@
+# docker compose -f test.yml up --abort-on-container-exit --exit-code-from test-client --remove-orphans --force-recreate
+
+services:
+  imap-xoauth2-token:
+    image: python:3
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./pip-cache/:/root/.cache/pip
+    environment:
+      # 'password'
+      GATEWAY_PASSWORD_HASH: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      https_proxy: ${https_proxy}
+      http_proxy: ${http_proxy}
+    command: >
+      bash -lc "pip install -r requirements.txt && python imap-xoauth2-token.py"
+
+  test-client:
+    image: python:3
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      HOST: imap-xoauth2-token
+      PORT: 143
+      USER: user@example.com
+      PASS: password
+    command: >
+      python test.py
+
+

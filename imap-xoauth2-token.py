@@ -13,9 +13,7 @@ MAX_SESSION_SECONDS = int(os.environ.get("SESSION_MAX_SECONDS", "3600"))
 MAX_LINE_BYTES = int(os.environ.get("MAX_LINE_BYTES", "8192"))
 GATEWAY_PASSWORD_HASH = os.environ["GATEWAY_PASSWORD_HASH"]
 
-SCOPES = ["https://mail.google.com/"]
-
-SVC_ACCT = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+SVC_ACCT = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=["https://mail.google.com/"])
 
 def log(msg, level="INFO"):
     ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -224,7 +222,7 @@ def handle_client(conn, addr):
             parts = line.split(maxsplit=1)
             tag = parts[0]
             cmd_upper = parts[1].split()[0].upper() if len(parts) > 1 and parts[1].strip() else ""
-            print("LINE", repr(line), repr(cmd_upper))
+            # print("LINE", repr(line), repr(cmd_upper))
 
             if cmd_upper == "CAPABILITY":
                 wline(client_sock, "* CAPABILITY IMAP4rev1 AUTH=PLAIN")

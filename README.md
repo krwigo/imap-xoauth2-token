@@ -44,6 +44,7 @@ docker compose -f docker-compose.yml up -d --force-recreate
 
 - No python typing.
 - No comments, docstrings, or inline annotations in the source code. Commented-out source blocks are acceptable.
+- Merge all standard-library imports onto a single comma-separated line wherever possible (e.g., `import os, sys, re`).
 - Combine single-line imports with commas where possible.
 - Use f-string formatting (`f"{}"`) instead of `.format()`.
 - Clean up empty exception handlers: `except Exception:\n            pass` becomes `except Exception: pass`.

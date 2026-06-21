@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import imaplib, socket
+import imaplib, socket, os, time
 
-HOST = input("Host [localhost]: ") or "localhost"
-PORT = int(input("Port [143]: ") or "143")
-USER = input("User [user@example.com]: ") or "user@example.com"
-PASS = input("Password [password]: ") or "password"
+HOST = os.environ.get("HOST") or input("Host [localhost]: ") or "localhost"
+PORT = int(os.environ.get("PORT") or input("Port [143]: ") or "143")
+USER = os.environ.get("USER") or input("User [user@example.com]: ") or "user@example.com"
+PASS = os.environ.get("PASS") or input("Password [password]: ") or "password"
 
 def test_session():
     m = imaplib.IMAP4(HOST, PORT)
@@ -39,4 +39,10 @@ def test_session():
     m.logout()
 
 if __name__ == "__main__":
-    test_session()
+    for i in range(60):
+        try:
+            test_session()
+            break
+        except ConnectionRefusedError as e:
+            print(i, e, flush=True)
+            time.sleep(3)
