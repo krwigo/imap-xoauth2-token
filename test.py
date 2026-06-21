@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import imaplib, socket, os, time
+import imaplib, socket, os, time, sys
 
 HOST = os.environ.get("HOST") or input("Host [localhost]: ") or "localhost"
 PORT = int(os.environ.get("PORT") or input("Port [143]: ") or "143")
@@ -30,13 +30,22 @@ def test_session():
 
     if ids:
         latest_uid = ids[-1]
-        status, msg_data = m.fetch(latest_uid, "(BODY.PEEK[HEADER])")
-        header = msg_data[0][1].decode(errors="replace").strip()
-        print(f"LATEST (UID {latest_uid}) headers:")
-        for line in header.splitlines():
-            print(f"  {line}")
+        status, msg_data = m.fetch(latest_uid, "(BODY.PEEK[])")
+        raw = msg_data[0][1]
+        def _flatten(obj):
+            if isinstance(obj, tuple):
+                return b"".join(_flatten(p) for p in obj)
+            if isinstance(obj, bytes):
+                return obj
+            return b""
+        body = _flatten(raw).decode(errors="replace").strip()
+        print(f"LATEST (UID {latest_uid}) body:")
+        for i, line in enumerate(body.splitlines()[:30]):
+            print(i, line)
 
     m.logout()
+    print("success", flush=True)
+    sys.exit(0)
 
 if __name__ == "__main__":
     for i in range(60):
